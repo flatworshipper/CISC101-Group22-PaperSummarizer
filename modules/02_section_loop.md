@@ -1,47 +1,71 @@
-Module 2: Section loop
-Purpose
-Process each section in order: extract text, summarize according to summary_level, and enforce constraints (evidence-only, word limits, terminology consistency).
+[Change Log – Dec 2025]
+- Added summary_level variable and conditional behavior for short vs detailed summaries.
+- Clarified enforcement of word limits and evidence-only rule for each section.
 
-Per-section procedure
-Extract section text:
+## Module 2: Section loop
 
-Use exact heading order from user.
+### Purpose
+Process each section in order: extract text, summarize according to `summary_level`, and enforce constraints (word limits, no hallucinations, consistent terminology).
 
-If missing/empty: Do not fabricate content; emit only warning.
+---
 
-Summarization (evidence-only):
+### Inputs (from Module 1)
+- Ordered list of section headings.
+- Mapping from section heading → section text.
+- Global constraints:
+  - `word_limit` (≤ 200 words per section; default 200).
+  - `summary_level` (“short” or “detailed”).
+  - `evidence_mode` (must be "strict").
+  - Terminology map for canonical terms.
 
-short:
+---
 
-Output: 1–2 sentences reflecting provided text.
+### Per-section procedure
 
-No bullets.
+1. **Select section in order**
+   - Take the next section heading from the ordered list.
+   - Retrieve its corresponding text (if missing/empty, record a warning and do not fabricate content).
 
-detailed:
+2. **Apply strict evidence rule**
+   - Summaries must only use information explicitly present in the section text.
+   - If a requested detail is not in the text, state:  
+     `Not stated in the provided text.`
 
-Output: 1 short paragraph (3–5 sentences) + 3–5 bullets.
+3. **Choose behavior based on `summary_level`**
 
-Bullets: Concrete findings, methods, numbers, definitions, or limitations present in text.
+   - If `summary_level = "short"`:
+     - Produce a **1–2 sentence** summary that captures the main idea of the section.
+     - No bullet list.
+     - Keep within the `word_limit` (≤ 200 words).
 
-Constraint enforcement:
+   - If `summary_level = "detailed"`:
+     - Produce:
+       - One short paragraph (about 3–5 sentences), **and**
+       - A bullet list of **3–5 key points** drawn directly from the text.
+     - Bullet points should highlight:
+       - Important results,
+       - Methods or design choices,
+       - Definitions or key concepts,
+       - Limitations or future work.
+     - Keep the total words for this section (paragraph + bullets) within `word_limit` (≤ 200 words).
 
-Word limit: Truncate to ≤ requested limit (≤200).
+4. **Enforce constraints**
+   - If the draft summary exceeds the `word_limit`, truncate gracefully while preserving meaning.
+   - Replace any invented or speculative content with  
+     `Not stated in the provided text.`
+   - Apply canonical terminology from the terminology map (e.g., always use “Transformer” or “model” consistently).
 
-Terminology consistency: Apply canonical terms from Intake.
+5. **Record diagnostics**
+   - Compute the final word count of the section summary after truncation.
+   - Collect any warnings for:
+     - Missing section text,
+     - Empty section text,
+     - Section text with < 50 words,
+     - Truncated due to word limit.
 
-Unsupported claims: Replace with “Not stated in the provided text.”
+---
 
-Warnings: If <50 words, include standard short-section warning.
-
-Count and record:
-
-Word count per section summary (post-truncation).
-
-Any warnings triggered during processing.
-
-Outputs (per section)
-Section summary: Formatted per summary_level, within word limit.
-
-Word count: Integer.
-
-Warnings: List (if any).
+### Outputs (per section)
+- Formatted section summary (short or detailed, based on `summary_level`).
+- Final word count (integer).
+- List of warnings (possibly empty) for that section.
